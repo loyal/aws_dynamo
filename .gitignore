@@ -16,3 +16,7 @@ Makefile.in
 /config.log
 /config.status
 /libtool
+
+TAGS
+tags
+

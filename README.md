@@ -21,7 +21,7 @@ this library attempts to be portable to wherever the dependacies
 listed below are available.  Patches to increase portability or
 reports of portability successes or failures are appreciated.
 
-Dependancies
+Dependencies
 ============
 
 * libcurl - for http support, http://curl.haxx.se/libcurl/

@@ -27,6 +27,8 @@ extern "C" {
 
 #define AWS_SESSION_REFRESH_TIME (60 * 5) /* seconds */
 
+#define AWS_KINESIS_SEQ_SIZE 64
+
 struct aws_session_token {
 	char *session_token;
 	char *secret_access_key;
@@ -48,8 +50,10 @@ struct aws_handle {
 	int dynamo_https;
 	int dynamo_port;
 	char *dynamo_host;
-};
 
+    /* Kinesis */
+    char kinesis_seq[AWS_KINESIS_SEQ_SIZE];
+};
 
 struct aws_handle *aws_init(const char *aws_id, const char *aws_key);
 

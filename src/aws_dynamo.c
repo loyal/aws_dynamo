@@ -45,14 +45,34 @@ const char *aws_dynamo_attribute_types[] = {
 	AWS_DYNAMO_JSON_TYPE_NUMBER_SET,
 };
 
+struct aws_errors aws_kinesis_errors[] = {
+    { .error="Unknown", .reason="Unknown", .http_code=-1 },
+    { .error="IncompleteSignature", .reason="The request signature does not conform to AWS standards.", .http_code=400 },
+    { .error="InternalFailure", .reason="The request processing has failed because of an unknown error, exception or failure.", .http_code=500 },
+    { .error="InvalidAction", .reason="The action or operation requested is invalid. Verify that the action is typed correctly.", .http_code=400 },
+    { .error="InvalidClientTokenId", .reason="The X.509 certificate or AWS access key ID provided does not exist in our records.", .http_code=403 },
+    { .error="InvalidParameterCombination", .reason="Parameters that must not be used together were used together.", .http_code=400 },
+    { .error="InvalidParameterValue", .reason="An invalid or out-of-range value was supplied for the input parameter.", .http_code=400 },
+    { .error="InvalidQueryParameter", .reason="The AWS query string is malformed or does not adhere to AWS standards.", .http_code=400 },
+    { .error="MalformedQueryString", .reason="The query string contains a syntax error.", .http_code=404 },
+    { .error="MissingAction", .reason="The request is missing an action or a required parameter.", .http_code=400 },
+    { .error="MissingAuthenticationToken", .reason="The request must contain either a valid (registered) AWS access key ID or X.509 certificate.", .http_code=403 },
+    { .error="MissingParameter", .reason="A required parameter for the specified action is not supplied.", .http_code=400 },
+    { .error="OptInRequired", .reason="The AWS access key ID needs a subscription for the service.", .http_code=403 },
+    { .error="RequestExpired", .reason="The request reached the service more than 15 minutes after the date stamp on the request or more than 15 minutes after the request expiration date (such as for pre-signed URLs), or the date stamp on the request is more than 15 minutes in the future.", .http_code=400 },
+    { .error="ServiceUnavailable", .reason="The request has failed due to a temporary failure of the server.", .http_code=503 },
+    { .error="Throttling", .reason="The request was denied due to request throttling.", .http_code=400 },
+    { .error="ValidationError", .reason="The input fails to satisfy the constraints specified by an AWS service.", .http_code=400 },
+};
+
 static char *aws_dynamo_get_canonicalized_headers(struct http_headers *headers) {
-	int i;
+    int i;
 	int canonical_headers_len = 0;
 	char *canonical_headers;
 	char *ptr;
 
 	/* Assume all header .name fields are lowercase. */
-
+    
 	/* Assume no duplicate headers (that is, all header names are
 		distinct.) */
 
@@ -92,7 +112,16 @@ static char *aws_dynamo_get_canonicalized_headers(struct http_headers *headers) 
 	return canonical_headers;
 }
 
-static int aws_dynamo_post(struct aws_handle *aws, const char *target, const char *body) {
+/*
+1. rename this fuction to aws_post(), give it a new argument "aws_service"
+Loyal will call it like this:
+
+aws_post(aws, "kinesis", "Kinesis_20131202.PutRecord", "{json body...}");
+
+
+*/
+
+static int aws_post(struct aws_handle *aws, const char *aws_service, const char *target, const char *body) {
 	char iso8601_basic_date[128];
 	char host_header[256];
 	char authorization[256];
@@ -129,21 +158,28 @@ static int aws_dynamo_post(struct aws_handle *aws, const char *target, const cha
 	const char *aws_access_key_id;
 	char yyyy_mm_dd[16];
 
-	if (aws->dynamo_host) {
-		host = aws->dynamo_host;
+    /* FIXME - choose host based on service enum, no strcmp. */
+	if (strcmp(aws_service, "dynamodb") == 0) {
+        if (aws->dynamo_host) {
+            host = AWS_KINESIS_DEFAULT_HOST;
+        } else {
+            host = AWS_DYNAMO_DEFAULT_HOST;
+        }
+	} else if (strcmp(aws_service, "kinesis") == 0) {
+        host = "kinesis.us-east-1.amazonaws.com";
 	} else {
-		host = AWS_DYNAMO_DEFAULT_HOST;
-	}
+        Warnx("aws_post: Bad service");
+    }
 
 	n = snprintf(host_header, sizeof(host_header), "%s", host);
 
 	if (n == -1 || n >= sizeof(host_header)) {
-		Warnx("aws_dynamo_post: host header truncated");
+		Warnx("aws_post: host header truncated");
 		goto failure;
 	}
 
 	if (time(&now) == -1) {
-		Warnx("aws_dynamo_post: Failed to get time.");
+		Warnx("aws_post: Failed to get time.");
 		return -1;
 	}
 
@@ -154,7 +190,7 @@ static int aws_dynamo_post(struct aws_handle *aws, const char *target, const cha
 		new_token = aws_iam_load_default_token(aws);
 
 		if (new_token == NULL) {
-			Warnx("aws_dynamo_post: Failed to refresh token.");
+			Warnx("aws_post: Failed to refresh token.");
 		} else {
 			struct aws_session_token *old_token;
 			old_token = aws->token;
@@ -170,25 +206,25 @@ static int aws_dynamo_post(struct aws_handle *aws, const char *target, const cha
 	}
 
 	if (gmtime_r(&now, &tm) == NULL) {
-		Warnx("aws_dynamo_post: Failed to get time structure.");
+		Warnx("aws_post: Failed to get time structure.");
 		return -1;
 	}
 
 	if (strftime(iso8601_basic_date, sizeof(iso8601_basic_date),
 		     "%Y%m%dT%H%M%SZ", &tm) == 0) {
-		Warnx("aws_dynamo_post: Failed to format time.");
+		Warnx("aws_post: Failed to format time.");
 		return -1;
 	}
 
 	if (strftime(yyyy_mm_dd, sizeof(yyyy_mm_dd), "%Y%m%d", &tm) == 0) {
-		Warnx("aws_dynamo_post: Failed to format date.");
+		Warnx("aws_post: Failed to format date.");
 		return -1;
 	}
 
 	canonical_headers = aws_dynamo_get_canonicalized_headers(&headers);
 
 	if (canonical_headers == NULL) {
-		Warnx("aws_dynamo_post: Failed to get canonical_headers.");
+		Warnx("aws_post: Failed to get canonical_headers.");
 		return -1;
 	}
 
@@ -196,37 +232,38 @@ static int aws_dynamo_post(struct aws_handle *aws, const char *target, const cha
 		canonical_headers, signed_headers, body);
 
 	if (hashed_canonical_request == NULL) {
-		Warnx("aws_dynamo_post: Failed to get canonical request.");
+		Warnx("aws_post: Failed to get canonical request.");
 		goto failure;
 	}
 
 	string_to_sign = aws_sigv4_create_string_to_sign(
 		iso8601_basic_date, yyyy_mm_dd,
 		"us-east-1" /* FIXME - hard coded region. */,
-		"dynamodb" /* FIXME - hard coded service. */, 
+		aws_service, 
 		hashed_canonical_request);
 	if (string_to_sign == NULL) {
-		Warnx("aws_dynamo_post: Failed to get string to sign.");
+		Warnx("aws_post: Failed to get string to sign.");
 		goto failure;
 	}
 
 	signature = aws_sigv4_create_signature(aws_secret_access_key,
 		yyyy_mm_dd, 
 		"us-east-1" /* FIXME - hard coded region. */,
-		"dynamodb" /* FIXME - hard coded service. */, 
+		aws_service,
 		string_to_sign);
 
 	if (signature == NULL) {
-		Warnx("aws_dynamo_post: Failed to get signature.");
+		Warnx("aws_post: Failed to get signature.");
 		goto failure;
 	}
 
 	n = snprintf(authorization, sizeof(authorization),
-		/* FIXME - hard coded region and service. */
-		"AWS4-HMAC-SHA256 Credential=%s/%s/us-east-1/dynamodb/aws4_request,SignedHeaders=%s,Signature=%s", aws_access_key_id, yyyy_mm_dd, signed_headers, signature);
+                 /* FIXME - hard coded region */
+                 "AWS4-HMAC-SHA256 Credential=%s/%s/us-east-1/%s/aws4_request,SignedHeaders=%s,Signature=%s", 
+                 aws_access_key_id, yyyy_mm_dd, aws_service, signed_headers, signature);
 
 	if (n == -1 || n >= sizeof(authorization)) {
-		Warnx("aws_dynamo_post: authorization truncated");
+		Warnx("aws_post: authorization truncated");
 		goto failure;
 	}
 
@@ -234,32 +271,35 @@ static int aws_dynamo_post(struct aws_handle *aws, const char *target, const cha
 	headers.count = sizeof(hdrs) / sizeof(hdrs[0]);
 
 #ifdef DEBUG_AWS_DYNAMO
-	Debug("aws_dynamo_post: '%s'", body);
+	Debug("aws_post: '%s'", body);
 #endif
+        /* FIXME: make https/http not DynamoDB specific, just have 1 
+           boolean that controls for the whole library if we use https or not. */
 	if (aws->dynamo_https) {
 		scheme = "https";
 	} else {
 		scheme = "http";
 	}
 
+        /* FIXME: make the kinesis service port configurable?  Or not? */
 	if (aws->dynamo_port > 0) {
 		if (asprintf(&url, "%s://%s:%d/", scheme, host, aws->dynamo_port) == -1) {
-			Warnx("aws_dynamo_post: failed to create url");
+			Warnx("aws_post: failed to create url");
 			goto failure;
 
 		}
 	} else {
 		if (asprintf(&url, "%s://%s/", scheme, host) == -1) {
-			Warnx("aws_dynamo_post: failed to create url");
+			Warnx("aws_post: failed to create url");
 			goto failure;
 		}
 	}
 
 	if (_http_post(aws->http, url, body, &headers) != HTTP_OK) {
-		Warnx("aws_dynamo_post: HTTP post failed, will retry.");
+		Warnx("aws_post: HTTP post failed, will retry.");
 		usleep(100000);
 		if (_http_post(aws->http, url, body, &headers) != HTTP_OK) {
-			Warnx("aws_dynamo_post: Retry failed.");
+			Warnx("aws_post: Retry failed.");
 			goto failure;
 		}
 	}
@@ -268,7 +308,7 @@ static int aws_dynamo_post(struct aws_handle *aws, const char *target, const cha
 	{
 		int response_len;
 
-		Debug("aws_dynamo_post response: '%s'", http_get_data(aws->http, &response_len));
+		Debug("aws_post response: '%s'", http_get_data(aws->http, &response_len));
 	}
 #endif
 
@@ -287,6 +327,10 @@ failure:
 	free(url);
 
 	return -1;
+}
+
+static int aws_dynamo_post(struct aws_handle *aws, const char *target, const char *body) {
+  return aws_post(aws, "dynamodb", target, body);
 }
 
 enum {
@@ -545,6 +589,73 @@ static int aws_dynamo_parse_error_response(const unsigned char *response, int re
 	}
 
 	yajl_free(hand);
+	return rv;
+}
+
+int aws_kinesis_request(struct aws_handle *aws, const char *target, const char *body) {
+	int http_response_code;
+	int dynamodb_response_code = AWS_KINESIS_CODE_UNKNOWN;
+	int rv = -1;
+	int attempt = 0;
+	char *message = NULL;
+
+	do {
+
+		if (aws_post(aws, "kinesis", target, body) == -1) {
+			return -1;
+		}
+	
+		http_response_code = http_get_response_code(aws->http);
+
+		if (http_response_code == 200) {
+			rv = 0;
+			break;
+		} else {
+			const char *response;
+			int response_len;
+			int retry;
+			useconds_t backoff;
+
+			response = http_get_data(aws->http, &response_len);
+
+			if (response == NULL) {
+				Warnx("aws_dynamo_request: Failed to get error response.");
+				break;
+			}
+
+			retry = aws_dynamo_parse_error_response(response, response_len, &message, &dynamodb_response_code);
+			if (retry == 0) {
+				/* Don't retry. */
+				break;
+			} else if (retry != 1) {
+				Warnx("aws_dynamo_request: Error evaluating error body. target='%s' body='%s' response='%s'",
+						target, body, response);
+				break;
+			}
+
+			backoff = (1 << attempt) * (rand() % 50000 + 25000);
+			Warnx("aws_dynamo_request: '%s' will retry after %d ms wait, attempt %d: %s %s",
+				message ? message : "unknown error", backoff / 1000, attempt, target, body);
+			usleep(backoff);
+			attempt++;
+		}
+
+	} while (attempt < aws->dynamo_max_retries);
+
+	if (attempt >= aws->dynamo_max_retries) {
+			Warnx("aws_dynamo_request: max retry limit hit, giving up: %s %s", target, body);
+	}
+
+	if (message != NULL) {
+		snprintf(aws->dynamo_message, sizeof(aws->dynamo_message), "%s",
+			message);
+		free(message);
+		aws->dynamo_errno = dynamodb_response_code;
+	} else {
+		aws->dynamo_message[0] = '\0';
+		aws->dynamo_errno = AWS_DYNAMO_CODE_NONE;
+	}
+
 	return rv;
 }
 

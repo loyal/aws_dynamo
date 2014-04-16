@@ -37,7 +37,7 @@
 
 #include "http.h"
 
-//#define DEBUG_HTTP 1
+#define DEBUG_HTTP 1
 
 #define LOCATION	"Location:"
 #define LOCATION_LEN	9

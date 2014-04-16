@@ -29,6 +29,7 @@ extern "C" {
 
 /* AWS DynamoDB HTTP headers names.  These are all lowercase
 	to simplify the signature calculation. */
+/* FIXME: Change these to just AWS, move into aws.h */
 #define AWS_DYNAMO_AUTHORIZATION_HEADER	"authorization"
 #define AWS_DYNAMO_DATE_HEADER	"x-amz-date"
 #define AWS_DYNAMO_AUTH_HEADER	"x-amzn-authorization"
@@ -37,6 +38,39 @@ extern "C" {
 
 /* Content-Type: value for DynamoDB requests */
 #define AWS_DYNAMO_CONTENT_TYPE	"application/x-amz-json-1.0"
+
+/* FIXME: Move into aws_kinesis.h*/
+#define AWS_KINESIS_DEFAULT_HOST "kinesis.us-east-1.amazonaws.com"
+#define AWS_KINESIS_PUT_RECORD "Kinesis_20131202.PutRecord"
+
+enum {
+  AWS_KINESIS_CODE_UNKNOWN=0,
+  AWS_KINESIS_CODE_INCOMPLETE_SIGNATURE,
+  AWS_KINESIS_CODE_INTERNAL_FAILURE,
+  AWS_KINESIS_CODE_INVALID_ACTION,
+  AWS_KINESIS_CODE_INVALID_CLIENTTOKENID,
+  AWS_KINESIS_CODE_INVALID_PARAMETER_COMBINATION,
+  AWS_KINESIS_CODE_INVALID_PARAMETER_VALUE,
+  AWS_KINESIS_CODE_INVALID_QUERY_PARAMETER,
+  AWS_KINESIS_CODE_MALFORMED_QUERY_STRING,
+  AWS_KINESIS_CODE_MISSING_ACTION,
+  AWS_KINESIS_CODE_MISSING_AUTHENTICATION_TOKEN,
+  AWS_KINESIS_CODE_MISSING_PARAMETER,
+  AWS_KINESIS_CODE_OPT_IN_REQUIRED,
+  AWS_KINESIS_CODE_REQUEST_EXPIRED,
+  AWS_KINESIS_CODE_SERVICE_UNAVAILABLE,
+  AWS_KINESIS_CODE_THROTTLING,
+  AWS_KINESIS_CODE_VALIDATION_ERROR,
+};
+
+/**
+ * aws_error - Generic AWS Responses
+ */
+struct aws_errors {
+  const char *error;
+  const char *reason;
+  int http_code;
+};
 
 #define AWS_DYNAMO_BATCH_GET_ITEM	"DynamoDB_20111205.BatchGetItem"
 #define AWS_DYNAMO_BATCH_WRITE_ITEM	"DynamoDB_20111205.BatchWriteItem"
@@ -51,6 +85,7 @@ extern "C" {
 #define AWS_DYNAMO_SCAN					"DynamoDB_20111205.Scan"
 #define AWS_DYNAMO_UPDATE_ITEM		"DynamoDB_20111205.UpdateItem"
 #define AWS_DYNAMO_UPDATE_TABLE		"DynamoDB_20111205.UpdateTable"
+
 
 #define AWS_DYNAMO_ACCESS_DENIED_EXCEPTION							"AccessDeniedException"
 #define AWS_DYNAMO_CONDITIONAL_CHECK_FAILED_EXCEPTION				"ConditionalCheckFailedException"
