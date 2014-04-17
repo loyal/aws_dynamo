@@ -123,6 +123,7 @@ aws_post(aws, "kinesis", "Kinesis_20131202.PutRecord", "{json body...}");
 
 static int aws_post(struct aws_handle *aws, const char *aws_service, const char *target, const char *body) {
 	char iso8601_basic_date[128];
+	char token_header[1024];
 	char host_header[256];
 	char authorization[256];
 	struct http_header hdrs[] = {
@@ -135,7 +136,9 @@ static int aws_post(struct aws_handle *aws, const char *aws_service, const char 
 		/* begin headers not included in signature. */
 		{ .name = AWS_DYNAMO_AUTHORIZATION_HEADER, .value = authorization },
 		{ .name = HTTP_CONTENT_TYPE_HEADER, .value = AWS_DYNAMO_CONTENT_TYPE },
+		{ .name = AWS_DYNAMO_TOKEN_HEADER, .value = token_header },
 	};
+	int total_num_headers;
 	struct http_headers headers = {
 		.count = 3,
 		/* AWS_DYNAMO_AUTHORIZATION and HTTP_CONTENT_TYPE_HEADER are
@@ -198,9 +201,23 @@ static int aws_post(struct aws_handle *aws, const char *aws_service, const char 
 				aws_free_session_token(old_token);   
 			}
 		}
+
+		n = snprintf(token_header, sizeof(token_header), "%s", aws->token->session_token);
+
+		if (n == -1 || n >= sizeof(token_header)) {
+			Warnx("aws_dynamo_post: token header truncated: %d", n);
+			goto failure;
+		}
+
+		/* Include all headers, including the token header. */
+		total_num_headers = sizeof(hdrs) / sizeof(hdrs[0]);
+
 		aws_secret_access_key = aws->token->secret_access_key;
 		aws_access_key_id = aws->token->access_key_id;
 	} else {
+		/* The -1 is to omit the token header, there is not token in this case. */
+		total_num_headers = sizeof(hdrs) / sizeof(hdrs[0]) - 1;
+
 		aws_secret_access_key = aws->aws_key;
 		aws_access_key_id = aws->aws_id;
 	}
@@ -268,7 +285,7 @@ static int aws_post(struct aws_handle *aws, const char *aws_service, const char 
 	}
 
 	/* Include all headers now that the signature calculation is complete. */
-	headers.count = sizeof(hdrs) / sizeof(hdrs[0]);
+	headers.count = total_num_headers;
 
 #ifdef DEBUG_AWS_DYNAMO
 	Debug("aws_post: '%s'", body);
