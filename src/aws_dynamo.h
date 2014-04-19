@@ -323,6 +323,8 @@ struct aws_dynamo_item *aws_dynamo_copy_item(struct aws_dynamo_item *item);
 
 void aws_dynamo_free_item(struct aws_dynamo_item *item);
 
+int aws_kinesis_request(struct aws_handle *aws, const char *target, const char *body);
+
 #ifdef  __cplusplus
 }
 #endif

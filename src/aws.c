@@ -118,6 +118,48 @@ void aws_deinit(struct aws_handle *aws) {
 	}
 }
 
+char *base64_encode(char *in, int in_len, size_t *out_len) {
+    BIO *bio = NULL, *b64 = NULL;
+    char *out = NULL;
+    FILE *fp;
+
+    fp = open_memstream(&out, out_len);
+
+    if (fp == NULL) {
+        goto error;
+    }
+
+    b64 = BIO_new(BIO_f_base64());
+    if (b64 == NULL) {
+        goto error;
+    }
+    bio = BIO_new_fp(fp, BIO_NOCLOSE);
+    if (bio == NULL) {
+        goto error;
+    }
+    bio = BIO_push(b64, bio);
+    if (BIO_write(bio, in, in_len) <= 0) {
+        goto error;
+    }
+    if (BIO_flush(bio) != 1) {
+        goto error;
+    }
+    BIO_free_all(bio);
+    fclose(fp);
+
+    return out;
+ error:
+    Warnx("Failed to base64 encode data.");
+    if (bio) {
+        BIO_free(bio);
+    }
+    if (b64) {
+        BIO_free(b64);
+    }
+    free(out);
+    return NULL;
+}
+
 time_t aws_parse_iso8601_date(char *str) {
 	struct tm t;
 	time_t time;

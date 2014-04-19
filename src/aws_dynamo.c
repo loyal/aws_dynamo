@@ -164,7 +164,7 @@ static int aws_post(struct aws_handle *aws, const char *aws_service, const char 
     /* FIXME - choose host based on service enum, no strcmp. */
 	if (strcmp(aws_service, "dynamodb") == 0) {
         if (aws->dynamo_host) {
-            host = AWS_KINESIS_DEFAULT_HOST;
+            host = aws->dynamo_host;
         } else {
             host = AWS_DYNAMO_DEFAULT_HOST;
         }
@@ -172,6 +172,7 @@ static int aws_post(struct aws_handle *aws, const char *aws_service, const char 
         host = "kinesis.us-east-1.amazonaws.com";
 	} else {
         Warnx("aws_post: Bad service");
+        goto failure;
     }
 
 	n = snprintf(host_header, sizeof(host_header), "%s", host);
@@ -609,9 +610,81 @@ static int aws_dynamo_parse_error_response(const unsigned char *response, int re
 	return rv;
 }
 
+/* returns 1 if the request should be retried, 0 if the request shouldn't be
+	retried, -1 on error. */
+/*FIXME: Move to aws_kinesis.c*/
+static int aws_kinesis_parse_error_response(const unsigned char *response, int response_len, char **message, int *code)
+{
+	yajl_handle hand;
+	yajl_status stat;
+	struct error_response_parser_ctx _ctx = {
+		.code = AWS_DYNAMO_CODE_UNKNOWN,
+	};
+	int rv;
+
+#if YAJL_MAJOR == 2
+	hand = yajl_alloc(&error_response_parser_callbacks, NULL, &_ctx);
+	yajl_parse(hand, response, response_len);
+	stat = yajl_complete_parse(hand);
+#else
+	hand = yajl_alloc(&error_response_parser_callbacks, NULL, NULL, &_ctx);
+	yajl_parse(hand, response, response_len);
+	stat = yajl_parse_complete(hand);
+#endif
+
+	if (stat != yajl_status_ok) {
+		unsigned char *str =
+		    yajl_get_error(hand, 1, response, response_len);
+		Warnx("aws_dynamo_parse_error_response: json parse failed, '%s'", (const char *)str);
+		yajl_free_error(hand, str);
+		yajl_free(hand);
+		free(_ctx.message);
+		*code = AWS_DYNAMO_CODE_UNKNOWN;
+		return -1;
+	}
+
+	if (_ctx.message != NULL) {
+		free(*message);
+		*message = strdup(_ctx.message);
+		free(_ctx.message);
+		*code = _ctx.code;
+	}
+
+	switch(_ctx.code) {
+	case AWS_DYNAMO_CODE_ACCESS_DENIED_EXCEPTION:
+	case AWS_DYNAMO_CODE_CONDITIONAL_CHECK_FAILED_EXCEPTION:
+	case AWS_DYNAMO_CODE_INCOMPLETE_SIGNATURE_EXCEPTION:
+	case AWS_DYNAMO_CODE_LIMIT_EXCEEDED_EXCEPTION:
+	case AWS_DYNAMO_CODE_MISSING_AUTHENTICATION_TOKEN_EXCEPTION:
+	case AWS_DYNAMO_CODE_RESOURCE_IN_USE_EXCEPTION:
+	case AWS_DYNAMO_CODE_RESOURCE_NOT_FOUND_EXCEPTION:
+	case AWS_DYNAMO_CODE_VALIDATION_EXCEPTION:
+		/* the request should not be retried. */
+		rv = 0;
+		break;
+
+	case AWS_DYNAMO_CODE_PROVISIONED_THROUGHPUT_EXCEEDED_EXCEPTION:
+	case AWS_DYNAMO_CODE_THROTTLING_EXCEPTION:
+	case AWS_DYNAMO_CODE_INTERNAL_FAILURE:
+	case AWS_DYNAMO_CODE_INTERNAL_SERVER_ERROR:
+	case AWS_DYNAMO_CODE_SERVICE_UNAVAILABLE_EXCEPTION:
+		/* the request should be retried. */
+		rv = 1;
+		break;
+
+	case AWS_DYNAMO_CODE_UNKNOWN:
+	default:
+		rv = -1;
+		break;
+	}
+
+	yajl_free(hand);
+	return rv;
+}
+/*FIXME: Move to aws_kinesis.c*/
 int aws_kinesis_request(struct aws_handle *aws, const char *target, const char *body) {
 	int http_response_code;
-	int dynamodb_response_code = AWS_KINESIS_CODE_UNKNOWN;
+	int kinesis_response_code = AWS_KINESIS_CODE_UNKNOWN;
 	int rv = -1;
 	int attempt = 0;
 	char *message = NULL;
@@ -636,22 +709,22 @@ int aws_kinesis_request(struct aws_handle *aws, const char *target, const char *
 			response = http_get_data(aws->http, &response_len);
 
 			if (response == NULL) {
-				Warnx("aws_dynamo_request: Failed to get error response.");
+				Warnx("aws_kinesis_request: Failed to get error response.");
 				break;
 			}
 
-			retry = aws_dynamo_parse_error_response(response, response_len, &message, &dynamodb_response_code);
+			retry = aws_kinesis_parse_error_response(response, response_len, &message, &kinesis_response_code);
 			if (retry == 0) {
 				/* Don't retry. */
 				break;
 			} else if (retry != 1) {
-				Warnx("aws_dynamo_request: Error evaluating error body. target='%s' body='%s' response='%s'",
+				Warnx("aws_kinesis_request: Error evaluating error body. target='%s' body='%s' response='%s'",
 						target, body, response);
 				break;
 			}
 
 			backoff = (1 << attempt) * (rand() % 50000 + 25000);
-			Warnx("aws_dynamo_request: '%s' will retry after %d ms wait, attempt %d: %s %s",
+			Warnx("aws_kinesis_request: '%s' will retry after %d ms wait, attempt %d: %s %s",
 				message ? message : "unknown error", backoff / 1000, attempt, target, body);
 			usleep(backoff);
 			attempt++;
@@ -660,17 +733,17 @@ int aws_kinesis_request(struct aws_handle *aws, const char *target, const char *
 	} while (attempt < aws->dynamo_max_retries);
 
 	if (attempt >= aws->dynamo_max_retries) {
-			Warnx("aws_dynamo_request: max retry limit hit, giving up: %s %s", target, body);
+			Warnx("aws_kinesis_request: max retry limit hit, giving up: %s %s", target, body);
 	}
 
 	if (message != NULL) {
 		snprintf(aws->dynamo_message, sizeof(aws->dynamo_message), "%s",
 			message);
 		free(message);
-		aws->dynamo_errno = dynamodb_response_code;
+		aws->dynamo_errno = kinesis_response_code;
 	} else {
 		aws->dynamo_message[0] = '\0';
-		aws->dynamo_errno = AWS_DYNAMO_CODE_NONE;
+		aws->dynamo_errno = AWS_KINESIS_CODE_NONE;
 	}
 
 	return rv;

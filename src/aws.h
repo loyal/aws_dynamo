@@ -27,7 +27,7 @@ extern "C" {
 
 #define AWS_SESSION_REFRESH_TIME (60 * 5) /* seconds */
 
-#define AWS_KINESIS_SEQ_SIZE 64
+#define AWS_KINESIS_SEQUENCE_SIZE 64
 
 struct aws_session_token {
 	char *session_token;
@@ -42,6 +42,7 @@ struct aws_handle {
 	char *aws_id;
 	char *aws_key;
 
+    /*FIXME: Rename dynamo away*/
 	/* Last DynamoDB error info. */
 	char dynamo_message[512];
 	int dynamo_errno;
@@ -52,12 +53,14 @@ struct aws_handle {
 	char *dynamo_host;
 
     /* Kinesis */
-    char kinesis_seq[AWS_KINESIS_SEQ_SIZE];
+    char kinesis_sequence[AWS_KINESIS_SEQUENCE_SIZE];
 };
 
 struct aws_handle *aws_init(const char *aws_id, const char *aws_key);
 
 void aws_deinit(struct aws_handle *aws);
+
+char *base64_encode(char *in, int in_len, size_t *out_len);
 
 time_t aws_parse_iso8601_date(char *str);
 
