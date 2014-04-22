@@ -35,8 +35,8 @@
 #include "aws_dynamo.h"
 #include "aws_dynamo_query.h"
 
-//#define DEBUG_AWS_DYNAMO 1
-//#define DEBUG_PARSER 1
+#define DEBUG_AWS_DYNAMO 1
+#define DEBUG_PARSER 1
 
 const char *aws_dynamo_attribute_types[] = {
 	AWS_DYNAMO_JSON_TYPE_STRING,
@@ -46,23 +46,23 @@ const char *aws_dynamo_attribute_types[] = {
 };
 
 struct aws_errors aws_kinesis_errors[] = {
-    { .error="Unknown", .reason="Unknown", .http_code=-1 },
-    { .error="IncompleteSignature", .reason="The request signature does not conform to AWS standards.", .http_code=400 },
-    { .error="InternalFailure", .reason="The request processing has failed because of an unknown error, exception or failure.", .http_code=500 },
-    { .error="InvalidAction", .reason="The action or operation requested is invalid. Verify that the action is typed correctly.", .http_code=400 },
-    { .error="InvalidClientTokenId", .reason="The X.509 certificate or AWS access key ID provided does not exist in our records.", .http_code=403 },
-    { .error="InvalidParameterCombination", .reason="Parameters that must not be used together were used together.", .http_code=400 },
-    { .error="InvalidParameterValue", .reason="An invalid or out-of-range value was supplied for the input parameter.", .http_code=400 },
-    { .error="InvalidQueryParameter", .reason="The AWS query string is malformed or does not adhere to AWS standards.", .http_code=400 },
-    { .error="MalformedQueryString", .reason="The query string contains a syntax error.", .http_code=404 },
-    { .error="MissingAction", .reason="The request is missing an action or a required parameter.", .http_code=400 },
-    { .error="MissingAuthenticationToken", .reason="The request must contain either a valid (registered) AWS access key ID or X.509 certificate.", .http_code=403 },
-    { .error="MissingParameter", .reason="A required parameter for the specified action is not supplied.", .http_code=400 },
-    { .error="OptInRequired", .reason="The AWS access key ID needs a subscription for the service.", .http_code=403 },
-    { .error="RequestExpired", .reason="The request reached the service more than 15 minutes after the date stamp on the request or more than 15 minutes after the request expiration date (such as for pre-signed URLs), or the date stamp on the request is more than 15 minutes in the future.", .http_code=400 },
-    { .error="ServiceUnavailable", .reason="The request has failed due to a temporary failure of the server.", .http_code=503 },
-    { .error="Throttling", .reason="The request was denied due to request throttling.", .http_code=400 },
-    { .error="ValidationError", .reason="The input fails to satisfy the constraints specified by an AWS service.", .http_code=400 },
+    { .code=0, .error="Unknown", .reason="Unknown", .http_code=-1 },
+    { .code=1, .error="IncompleteSignature", .reason="The request signature does not conform to AWS standards.", .http_code=400 },
+    { .code=2, .error="InternalFailure", .reason="The request processing has failed because of an unknown error, exception or failure.", .http_code=500 },
+    { .code=3, .error="InvalidAction", .reason="The action or operation requested is invalid. Verify that the action is typed correctly.", .http_code=400 },
+    { .code=4, .error="InvalidClientTokenId", .reason="The X.509 certificate or AWS access key ID provided does not exist in our records.", .http_code=403 },
+    { .code=5, .error="InvalidParameterCombination", .reason="Parameters that must not be used together were used together.", .http_code=400 },
+    { .code=6, .error="InvalidParameterValue", .reason="An invalid or out-of-range value was supplied for the input parameter.", .http_code=400 },
+    { .code=7, .error="InvalidQueryParameter", .reason="The AWS query string is malformed or does not adhere to AWS standards.", .http_code=400 },
+    { .code=8, .error="MalformedQueryString", .reason="The query string contains a syntax error.", .http_code=404 },
+    { .code=9, .error="MissingAction", .reason="The request is missing an action or a required parameter.", .http_code=400 },
+    { .code=10, .error="MissingAuthenticationToken", .reason="The request must contain either a valid (registered) AWS access key ID or X.509 certificate.", .http_code=403 },
+    { .code=11, .error="MissingParameter", .reason="A required parameter for the specified action is not supplied.", .http_code=400 },
+    { .code=12, .error="OptInRequired", .reason="The AWS access key ID needs a subscription for the service.", .http_code=403 },
+    { .code=13, .error="RequestExpired", .reason="The request reached the service more than 15 minutes after the date stamp on the request or more than 15 minutes after the request expiration date (such as for pre-signed URLs), or the date stamp on the request is more than 15 minutes in the future.", .http_code=400 },
+    { .code=14, .error="ServiceUnavailable", .reason="The request has failed due to a temporary failure of the server.", .http_code=503 },
+    { .code=15, .error="Throttling", .reason="The request was denied due to request throttling.", .http_code=400 },
+    { .code=16, .error="ValidationError", .reason="The input fails to satisfy the constraints specified by an AWS service.", .http_code=400 },
 };
 
 static char *aws_dynamo_get_canonicalized_headers(struct http_headers *headers) {
@@ -610,6 +610,153 @@ static int aws_dynamo_parse_error_response(const unsigned char *response, int re
 	return rv;
 }
 
+/*Move below to aws_kinesis.c*/
+
+static int kinesis_error_response_parser_string(void *ctx, const unsigned char *val,
+				 unsigned int len)
+{
+	struct error_response_parser_ctx *_ctx = (struct error_response_parser_ctx *)ctx;
+#ifdef DEBUG_PARSER
+	char buf[len + 1];
+	snprintf(buf, len + 1, "%s", val);
+
+	Debug("error_response_parser_string, val = %s, enter state %d", buf,
+	      _ctx->parser_state);
+#endif				/* DEBUG_PARSER */
+	switch (_ctx->parser_state) {
+	case ERROR_RESPONSE_PARSER_STATE_TYPE_KEY: {
+		const unsigned char *type;
+		int typelen;
+        size_t i;
+        size_t count=sizeof(aws_kinesis_errors)/sizeof(aws_kinesis_errors[0]);
+        int found = -1;
+		type = memchr(val, '#', len);
+		if (type == NULL) {
+			Warnx("kinesis_error_response_parser_string - # not found");
+			return 0;	
+		}
+		type++;
+		typelen = len - (type - val);
+        for (i=0; i<count; i++) {
+            struct aws_errors *aws_error = aws_kinesis_error[i];
+        	if (AWS_DYNAMO_VALCMP(aws_error->error, type, typelen)) {
+                _ctx->code = aws_error->code;
+                found = i;
+                break;
+            }
+		}
+        if (found==-1) {
+			char code[typelen + 1];
+			snprintf(code, typelen + 1, "%s", type);
+			Warnx("kinesis_error_response_parser_string - unknown code %s", code);
+		}
+		_ctx->parser_state = ERROR_RESPONSE_PARSER_STATE_ROOT_MAP;
+		break;
+	}
+	case ERROR_RESPONSE_PARSER_STATE_MESSAGE_KEY: {
+		free(_ctx->message);
+		_ctx->message = strndup(val, len);
+		_ctx->parser_state = ERROR_RESPONSE_PARSER_STATE_ROOT_MAP;
+		break;
+	}
+	default:{
+			Warnx("kinesis_error_response_parser_string - unexpected state %d", _ctx->parser_state);
+			return 0;
+			break;
+		}
+	}
+#ifdef DEBUG_PARSER
+	Debug("kinesis_error_response_parser_string exit %d", _ctx->parser_state);
+#endif				/* DEBUG_PARSER */
+	return 1;
+}
+
+static int kinesis_error_response_parser_start_map(void *ctx)
+{
+	struct error_response_parser_ctx *_ctx = (struct error_response_parser_ctx *)ctx;
+#ifdef DEBUG_PARSER
+	Debug("kinesis_error_response_parser_start_map, enter state %d", _ctx->parser_state);
+#endif				/* DEBUG_PARSER */
+	switch (_ctx->parser_state) {
+	case ERROR_RESPONSE_PARSER_STATE_NONE: {
+		_ctx->parser_state = ERROR_RESPONSE_PARSER_STATE_ROOT_MAP;
+		break;
+	}
+	default:{
+			Warnx("kinesis_error_response_parser_start_map - unexpected state: %d",
+			     _ctx->parser_state);
+			return 0;
+			break;
+		}
+	}
+#ifdef DEBUG_PARSER
+	Debug("kinesis_error_response_parser_start_map exit %d", _ctx->parser_state);
+#endif				/* DEBUG_PARSER */
+	return 1;
+}
+
+static int kinesis_error_response_parser_map_key(void *ctx, const unsigned char *val,
+				  unsigned int len)
+{
+	struct error_response_parser_ctx *_ctx = (struct error_response_parser_ctx *)ctx;
+#ifdef DEBUG_PARSER
+	char buf[len + 1];
+	snprintf(buf, len + 1, "%s", val);
+	Debug("kinesis_error_response_parser_map_key, val = %s, enter state %d", buf,
+	      _ctx->parser_state);
+#endif				/* DEBUG_PARSER */
+	switch (_ctx->parser_state) {
+	case ERROR_RESPONSE_PARSER_STATE_ROOT_MAP: {
+			if (AWS_DYNAMO_VALCMP("__type", val, len)) {
+				_ctx->parser_state = ERROR_RESPONSE_PARSER_STATE_TYPE_KEY;
+			} else if (AWS_DYNAMO_VALCASECMP("message", val, len)) {
+				_ctx->parser_state = ERROR_RESPONSE_PARSER_STATE_MESSAGE_KEY;
+			}
+		break;
+	}
+	default:{
+			Warnx("kinesis_error_response_parser_map_key - unexpected state %d", _ctx->parser_state);
+			return 0;
+			break;
+		}
+	}
+#ifdef DEBUG_PARSER
+	Debug("kinesis_error_response_parser_map_key exit %d", _ctx->parser_state);
+#endif				/* DEBUG_PARSER */
+	return 1;
+}
+
+static int kinesis_error_response_parser_end_map(void *ctx)
+{
+	struct error_response_parser_ctx *_ctx = (struct error_response_parser_ctx *)ctx;
+#ifdef DEBUG_PARSER
+	Debug("kinesis_error_response_parser_end_map enter %d", _ctx->parser_state);
+#endif				/* DEBUG_PARSER */
+	switch (_ctx->parser_state) {
+	case ERROR_RESPONSE_PARSER_STATE_ROOT_MAP:{
+			_ctx->parser_state = ERROR_RESPONSE_PARSER_STATE_NONE;
+			break;
+		}
+	default:{
+			Warnx("kinesis_error_response_parser_end_map - unexpected state %d", _ctx->parser_state);
+			return 0;
+			break;
+		}
+	}
+
+#ifdef DEBUG_PARSER
+	Debug("error_response_parser_end_map exit %d", _ctx->parser_state);
+#endif				/* DEBUG_PARSER */
+	return 1;
+}
+
+static yajl_callbacks kinesis_error_response_parser_callbacks = {
+	.yajl_string    = kinesis_error_response_parser_string,
+	.yajl_start_map = kinesis_error_response_parser_start_map,
+	.yajl_map_key   = kinesis_error_response_parser_map_key,
+	.yajl_end_map   = kinesis_error_response_parser_end_map,
+};
+
 /* returns 1 if the request should be retried, 0 if the request shouldn't be
 	retried, -1 on error. */
 /*FIXME: Move to aws_kinesis.c*/
@@ -618,16 +765,16 @@ static int aws_kinesis_parse_error_response(const unsigned char *response, int r
 	yajl_handle hand;
 	yajl_status stat;
 	struct error_response_parser_ctx _ctx = {
-		.code = AWS_DYNAMO_CODE_UNKNOWN,
+		.code = AWS_KINESIS_CODE_UNKNOWN,
 	};
 	int rv;
 
 #if YAJL_MAJOR == 2
-	hand = yajl_alloc(&error_response_parser_callbacks, NULL, &_ctx);
+	hand = yajl_alloc(&kinesis_error_response_parser_callbacks, NULL, &_ctx);
 	yajl_parse(hand, response, response_len);
 	stat = yajl_complete_parse(hand);
 #else
-	hand = yajl_alloc(&error_response_parser_callbacks, NULL, NULL, &_ctx);
+	hand = yajl_alloc(&kinesis_error_response_parser_callbacks, NULL, NULL, &_ctx);
 	yajl_parse(hand, response, response_len);
 	stat = yajl_parse_complete(hand);
 #endif
@@ -635,11 +782,11 @@ static int aws_kinesis_parse_error_response(const unsigned char *response, int r
 	if (stat != yajl_status_ok) {
 		unsigned char *str =
 		    yajl_get_error(hand, 1, response, response_len);
-		Warnx("aws_dynamo_parse_error_response: json parse failed, '%s'", (const char *)str);
+		Warnx("aws_kinesis_parse_error_response: json parse failed, '%s'", (const char *)str);
 		yajl_free_error(hand, str);
 		yajl_free(hand);
 		free(_ctx.message);
-		*code = AWS_DYNAMO_CODE_UNKNOWN;
+		*code = AWS_KINESIS_CODE_UNKNOWN;
 		return -1;
 	}
 
@@ -651,28 +798,31 @@ static int aws_kinesis_parse_error_response(const unsigned char *response, int r
 	}
 
 	switch(_ctx.code) {
-	case AWS_DYNAMO_CODE_ACCESS_DENIED_EXCEPTION:
-	case AWS_DYNAMO_CODE_CONDITIONAL_CHECK_FAILED_EXCEPTION:
-	case AWS_DYNAMO_CODE_INCOMPLETE_SIGNATURE_EXCEPTION:
-	case AWS_DYNAMO_CODE_LIMIT_EXCEEDED_EXCEPTION:
-	case AWS_DYNAMO_CODE_MISSING_AUTHENTICATION_TOKEN_EXCEPTION:
-	case AWS_DYNAMO_CODE_RESOURCE_IN_USE_EXCEPTION:
-	case AWS_DYNAMO_CODE_RESOURCE_NOT_FOUND_EXCEPTION:
-	case AWS_DYNAMO_CODE_VALIDATION_EXCEPTION:
+    AWS_KINESIS_CODE_MISSING_ACTION:
+    AWS_KINESIS_CODE_MISSING_AUTHENTICATION_TOKEN:
+    AWS_KINESIS_CODE_MISSING_PARAMETER:
+    AWS_KINESIS_CODE_OPT_IN_REQUIRED:
+    AWS_KINESIS_CODE_REQUEST_EXPIRED:
+    AWS_KINESIS_CODE_INVALID_PARAMETER_COMBINATION:
+    AWS_KINESIS_CODE_INVALID_PARAMETER_VALUE:
+    AWS_KINESIS_CODE_INVALID_QUERY_PARAMETER:
+    AWS_KINESIS_CODE_MALFORMED_QUERY_STRING:
+    AWS_KINESIS_CODE_INCOMPLETE_SIGNATURE:
+    AWS_KINESIS_CODE_INVALID_CLIENTTOKENID:
+    AWS_KINESIS_CODE_INVALID_ACTION:
+    AWS_KINESIS_CODE_VALIDATION_ERROR:
 		/* the request should not be retried. */
 		rv = 0;
 		break;
 
-	case AWS_DYNAMO_CODE_PROVISIONED_THROUGHPUT_EXCEEDED_EXCEPTION:
-	case AWS_DYNAMO_CODE_THROTTLING_EXCEPTION:
-	case AWS_DYNAMO_CODE_INTERNAL_FAILURE:
-	case AWS_DYNAMO_CODE_INTERNAL_SERVER_ERROR:
-	case AWS_DYNAMO_CODE_SERVICE_UNAVAILABLE_EXCEPTION:
+    AWS_KINESIS_CODE_THROTTLING:
+    AWS_KINESIS_CODE_INTERNAL_FAILURE:
+    AWS_KINESIS_CODE_SERVICE_UNAVAILABLE:
 		/* the request should be retried. */
 		rv = 1;
 		break;
 
-	case AWS_DYNAMO_CODE_UNKNOWN:
+	case AWS_KINESIS_CODE_UNKNOWN:
 	default:
 		rv = -1;
 		break;
@@ -688,7 +838,7 @@ int aws_kinesis_request(struct aws_handle *aws, const char *target, const char *
 	int rv = -1;
 	int attempt = 0;
 	char *message = NULL;
-
+    //FIXME: Change aws handle variables to be generic, not just dynamodb?
 	do {
 
 		if (aws_post(aws, "kinesis", target, body) == -1) {
