@@ -39,51 +39,6 @@ extern "C" {
 /* Content-Type: value for DynamoDB requests */
 #define AWS_DYNAMO_CONTENT_TYPE	"application/x-amz-json-1.0"
 
-/* FIXME: Move into aws_kinesis.h*/
-#define AWS_KINESIS_DEFAULT_HOST "kinesis.us-east-1.amazonaws.com"
-#define AWS_KINESIS_PUT_RECORD "Kinesis_20131202.PutRecord"
-
-enum {
-    /*Do not change*/
-    AWS_KINESIS_CODE_UNKNOWN=0,
-    AWS_KINESIS_CODE_NONE,
-    AWS_KINESIS_CODE_INCOMPLETE_SIGNATURE,
-    AWS_KINESIS_CODE_INTERNAL_FAILURE,
-    AWS_KINESIS_CODE_INVALID_ACTION,
-    AWS_KINESIS_CODE_INVALID_CLIENTTOKENID,
-    AWS_KINESIS_CODE_INVALID_PARAMETER_COMBINATION,
-    AWS_KINESIS_CODE_INVALID_PARAMETER_VALUE,
-    AWS_KINESIS_CODE_INVALID_QUERY_PARAMETER,
-    AWS_KINESIS_CODE_MALFORMED_QUERY_STRING,
-    AWS_KINESIS_CODE_MISSING_ACTION,
-    AWS_KINESIS_CODE_MISSING_AUTHENTICATION_TOKEN,
-    AWS_KINESIS_CODE_MISSING_PARAMETER,
-    AWS_KINESIS_CODE_OPT_IN_REQUIRED,
-    AWS_KINESIS_CODE_REQUEST_EXPIRED,
-    AWS_KINESIS_CODE_SERVICE_UNAVAILABLE,
-    AWS_KINESIS_CODE_THROTTLING,
-    AWS_KINESIS_CODE_VALIDATION_ERROR,
-    /*Add below here*/
-    /*Add above here*/
-    AWS_KINESIS_CODE_SIZE,   
-};
-
-#define AWS_KINESIS_JSON_SEQUENCE_NUMBER "SequenceNumber"
-#define AWS_KINESIS_JSON_SHARD_ID "ShardId"
-/* Content-Type: value for Kinesis requests */
-#define AWS_KINESIS_CONTENT_TYPE	"application/x-amz-json-1.1"
-
-
-/**
- * aws_error - Generic AWS Responses
- */
-struct aws_errors {
-    int code;
-    const char *error;
-    const char *reason;
-    int http_code;
-};
-
 #define AWS_DYNAMO_BATCH_GET_ITEM	"DynamoDB_20111205.BatchGetItem"
 #define AWS_DYNAMO_BATCH_WRITE_ITEM	"DynamoDB_20111205.BatchWriteItem"
 #define AWS_DYNAMO_CREATE_TABLE		"DynamoDB_20111205.CreateTable"

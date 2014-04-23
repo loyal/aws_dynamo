@@ -26,6 +26,7 @@
 
 #include "http.h"
 #include "aws_dynamo.h"
+#include "aws_kinesis.h"
 #include "aws_kinesis_put_record.h"
 
 #define DEBUG_PARSER 1
@@ -50,9 +51,7 @@ static int put_record_string(void *ctx, const unsigned char *val, unsigned int l
 #ifdef DEBUG_PARSER
 	char buf[len + 1];
 	snprintf(buf, len + 1, "%s", val);
-
-	Debug("put_record_string, val = %s, enter state %d", buf,
-	      _ctx->parser_state);
+Debug("put_record_string, val = %s, enter state %d", buf, _ctx->parser_state);
 #endif				/* DEBUG_PARSER */
 	switch (_ctx->parser_state) {
 	case PARSER_STATE_SEQUENCE_NUMBER_VALUE:{
@@ -75,7 +74,7 @@ static int put_record_string(void *ctx, const unsigned char *val, unsigned int l
 	Debug("put_record_string exit %d", _ctx->parser_state);
 #endif				/* DEBUG_PARSER */
 	return 1;
-}
+} 
 
 static int put_record_start_map(void *ctx)
 {
@@ -89,7 +88,7 @@ static int put_record_start_map(void *ctx)
 			break;
 		}
 	case PARSER_STATE_SEQUENCE_NUMBER_KEY:{
-		_ctx->parser_state = PARSER_STATE_SEQUENCE_NUMBER_VALUE;
+		    _ctx->parser_state = PARSER_STATE_SEQUENCE_NUMBER_VALUE;
 			break;
 		}
 	case PARSER_STATE_SHARD_ID_KEY:{
@@ -122,9 +121,9 @@ static int put_record_map_key(void *ctx, const unsigned char *val,
 	switch (_ctx->parser_state) {
 	case PARSER_STATE_ROOT_MAP:{
 			if (AWS_DYNAMO_VALCMP(AWS_KINESIS_JSON_SEQUENCE_NUMBER, val, len)) {
-				_ctx->parser_state = PARSER_STATE_SEQUENCE_NUMBER_KEY;
+				_ctx->parser_state = PARSER_STATE_SEQUENCE_NUMBER_VALUE;
 			} else if (AWS_DYNAMO_VALCMP(AWS_KINESIS_JSON_SHARD_ID, val, len)) {
-				_ctx->parser_state = PARSER_STATE_SHARD_ID_KEY;
+				_ctx->parser_state = PARSER_STATE_SHARD_ID_VALUE;
 			} else {
 				char key[len + 1];
 				snprintf(key, len + 1, "%s", val);

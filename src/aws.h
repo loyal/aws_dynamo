@@ -20,6 +20,10 @@
 #define _AWS_H_
 
 #include <time.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "http.h"
 
 #ifdef  __cplusplus
 extern "C" {
@@ -46,7 +50,6 @@ struct aws_handle {
 	/* Last DynamoDB error info. */
 	char dynamo_message[512];
 	int dynamo_errno;
-
 	int dynamo_max_retries;
 	int dynamo_https;
 	int dynamo_port;
@@ -67,6 +70,10 @@ time_t aws_parse_iso8601_date(char *str);
 void aws_free_session_token(struct aws_session_token *token);
 
 int aws_get_security_credentials(struct aws_handle *aws, char **id, char **key);
+
+char *aws_dynamo_get_canonicalized_headers(struct http_headers *headers);
+
+int aws_post(struct aws_handle *aws, const char *aws_service, const char *target, const char *body);
 
 #ifdef  __cplusplus
 }

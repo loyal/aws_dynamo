@@ -128,29 +128,21 @@ static int http_transaction(void *handle, const char *url,
 	struct curl_slist *headers = NULL;
 	struct http_buffer *buf = h->buf;
 
-	Debug("aws_post: "__FILE__":%d",__LINE__);
-
 	http_reset_buffer(buf);
-	Debug("aws_post: "__FILE__":%d",__LINE__);
 
 	curl_easy_setopt(curl, CURLOPT_URL, url);
-	Debug("aws_post: "__FILE__":%d",__LINE__);
+
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, http_receive_data);
-	Debug("aws_post: "__FILE__":%d",__LINE__);
+
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, buf);
-	Debug("aws_post: "__FILE__":%d",__LINE__);
 
 	if (data) {
-        Debug("aws_post: "__FILE__":%d",__LINE__);
 		curl_easy_setopt(curl, CURLOPT_POST, 1);
-        Debug("aws_post: "__FILE__":%d",__LINE__);
         curl_easy_setopt(curl, CURLOPT_POSTFIELDS, data);
 	} else {
 		/* Use HTTP GET */
-        Debug("aws_post: "__FILE__":%d",__LINE__);
         curl_easy_setopt(curl, CURLOPT_HTTPGET, 1);
 	}
-	Debug("aws_post: "__FILE__":%d",__LINE__);
 
 	if (con_close != HTTP_NOCLOSE)
 		curl_easy_setopt(curl, CURLOPT_FORBID_REUSE, 1);
@@ -158,12 +150,10 @@ static int http_transaction(void *handle, const char *url,
 		curl_easy_setopt(curl, CURLOPT_FORBID_REUSE, 0);
 
 	if (hdrs) {
-        Debug("aws_post: "__FILE__":%d",__LINE__);
 		int i;
 
 		for (i = 0; i < hdrs->count; i++) {
 			char *header;
-            Debug("aws_post: "__FILE__":%d",__LINE__);
 
 			if (asprintf(&header, "%s: %s",
 				     hdrs->entries[i].name,
@@ -176,32 +166,23 @@ static int http_transaction(void *handle, const char *url,
 			free(header);
 		}
 	}
-	Debug("aws_post: "__FILE__":%d",__LINE__);
 
 	curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-	Debug("aws_post: "__FILE__":%d",__LINE__);
-
 	/* Perform the transfer */
 	if ((ret = _curl_easy_perform(curl)) == 0) {
-        Debug("aws_post: "__FILE__":%d",__LINE__);
 		/* Get a copy of the response code */
 		curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &buf->response);
 
 		/* Get a copy of the effective URL */
-        Debug("aws_post: "__FILE__":%d",__LINE__);
         curl_easy_getinfo(curl, CURLINFO_EFFECTIVE_URL, &effective_url);
-        Debug("aws_post: "__FILE__":%d",__LINE__);
         buf->url = strdup(effective_url);
 	}
 
 	if (hdrs) {	
-        Debug("aws_post: "__FILE__":%d",__LINE__);
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, NULL);
-        Debug("aws_post: "__FILE__":%d",__LINE__);
 		curl_slist_free_all(headers);
 	}
-	Debug("aws_post: "__FILE__":%d",__LINE__);
 
 	return ret;
 }
@@ -564,16 +545,12 @@ int _http_post(void *handle, const char *url,
 		}
 	}
 #endif
-	Debug("aws_post: "__FILE__":%d",__LINE__);
 
 	rv = _http_post_quiet(handle, url, data, hdrs);
-	Debug("aws_post: "__FILE__":%d",__LINE__);
 
 	if (buf->cur >= buf->max)
 		buf->cur = buf->max - 1;
 	buf->data[buf->cur] = '\0';
-
-	Debug("aws_post: "__FILE__":%d",__LINE__);
 
 #if DEBUG_HTTP
 	Debug("HTTP RECV %d BYTES:\n%s\n", buf->cur, buf->data);
