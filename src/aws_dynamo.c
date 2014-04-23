@@ -46,23 +46,24 @@ const char *aws_dynamo_attribute_types[] = {
 };
 
 struct aws_errors aws_kinesis_errors[] = {
-    { .code=0, .error="Unknown", .reason="Unknown", .http_code=-1 },
-    { .code=1, .error="IncompleteSignature", .reason="The request signature does not conform to AWS standards.", .http_code=400 },
-    { .code=2, .error="InternalFailure", .reason="The request processing has failed because of an unknown error, exception or failure.", .http_code=500 },
-    { .code=3, .error="InvalidAction", .reason="The action or operation requested is invalid. Verify that the action is typed correctly.", .http_code=400 },
-    { .code=4, .error="InvalidClientTokenId", .reason="The X.509 certificate or AWS access key ID provided does not exist in our records.", .http_code=403 },
-    { .code=5, .error="InvalidParameterCombination", .reason="Parameters that must not be used together were used together.", .http_code=400 },
-    { .code=6, .error="InvalidParameterValue", .reason="An invalid or out-of-range value was supplied for the input parameter.", .http_code=400 },
-    { .code=7, .error="InvalidQueryParameter", .reason="The AWS query string is malformed or does not adhere to AWS standards.", .http_code=400 },
-    { .code=8, .error="MalformedQueryString", .reason="The query string contains a syntax error.", .http_code=404 },
-    { .code=9, .error="MissingAction", .reason="The request is missing an action or a required parameter.", .http_code=400 },
-    { .code=10, .error="MissingAuthenticationToken", .reason="The request must contain either a valid (registered) AWS access key ID or X.509 certificate.", .http_code=403 },
-    { .code=11, .error="MissingParameter", .reason="A required parameter for the specified action is not supplied.", .http_code=400 },
-    { .code=12, .error="OptInRequired", .reason="The AWS access key ID needs a subscription for the service.", .http_code=403 },
-    { .code=13, .error="RequestExpired", .reason="The request reached the service more than 15 minutes after the date stamp on the request or more than 15 minutes after the request expiration date (such as for pre-signed URLs), or the date stamp on the request is more than 15 minutes in the future.", .http_code=400 },
-    { .code=14, .error="ServiceUnavailable", .reason="The request has failed due to a temporary failure of the server.", .http_code=503 },
-    { .code=15, .error="Throttling", .reason="The request was denied due to request throttling.", .http_code=400 },
-    { .code=16, .error="ValidationError", .reason="The input fails to satisfy the constraints specified by an AWS service.", .http_code=400 },
+    { .code=AWS_KINESIS_CODE_UNKNOWN,                       .http_code=-1,  .error="Unknown",                     .reason="Unknown"},
+    { .code=AWS_KINESIS_CODE_INCOMPLETE_SIGNATURE,          .http_code=400, .error="IncompleteSignature",         .reason="The request signature does not conform to AWS standards."},
+    { .code=AWS_KINESIS_CODE_INTERNAL_FAILURE,              .http_code=500, .error="InternalFailure",             .reason="The request processing has failed because of an unknown error, exception or failure."},
+    { .code=AWS_KINESIS_CODE_INVALID_ACTION,                .http_code=400, .error="InvalidAction",               .reason="The action or operation requested is invalid. Verify that the action is typed correctly."},
+    { .code=AWS_KINESIS_CODE_INVALID_CLIENTTOKENID,         .http_code=403, .error="InvalidClientTokenId",        .reason="The X.509 certificate or AWS access key ID provided does not exist in our records."},
+    { .code=AWS_KINESIS_CODE_INVALID_PARAMETER_COMBINATION, .http_code=400, .error="InvalidParameterCombination", .reason="Parameters that must not be used together were used together."},
+    { .code=AWS_KINESIS_CODE_INVALID_PARAMETER_VALUE,       .http_code=400, .error="InvalidParameterValue",       .reason="An invalid or out-of-range value was supplied for the input parameter."},
+    { .code=AWS_KINESIS_CODE_INVALID_QUERY_PARAMETER,       .http_code=400, .error="InvalidQueryParameter",       .reason="The AWS query string is malformed or does not adhere to AWS standards."},
+    { .code=AWS_KINESIS_CODE_MALFORMED_QUERY_STRING,        .http_code=404, .error="MalformedQueryString",        .reason="The query string contains a syntax error."},
+    { .code=AWS_KINESIS_CODE_MISSING_ACTION,                .http_code=400, .error="MissingAction",               .reason="The request is missing an action or a required parameter."},
+    { .code=AWS_KINESIS_CODE_MISSING_AUTHENTICATION_TOKEN,  .http_code=403, .error="MissingAuthenticationToken",  .reason="The request must contain either a valid (registered) AWS access key ID or X.509 certificate."},
+    { .code=AWS_KINESIS_CODE_MISSING_PARAMETER,             .http_code=400, .error="MissingParameter",            .reason="A required parameter for the specified action is not supplied."},
+    { .code=AWS_KINESIS_CODE_OPT_IN_REQUIRED,               .http_code=403, .error="OptInRequired",               .reason="The AWS access key ID needs a subscription for the service."},
+    { .code=AWS_KINESIS_CODE_REQUEST_EXPIRED,               .http_code=400, .error="RequestExpired",              .reason="The request reached the service more than 15 minutes after the date stamp on the request or more than 15 minutes after the request expiration date (such as for pre-signed URLs), or the date stamp on the request is more than 15 minutes in the future."},
+    { .code=AWS_KINESIS_CODE_SERVICE_UNAVAILABLE,           .http_code=503, .error="ServiceUnavailable",          .reason="The request has failed due to a temporary failure of the server."},
+    { .code=AWS_KINESIS_CODE_THROTTLING,                    .http_code=400, .error="Throttling",                  .reason="The request was denied due to request throttling."},
+    { .code=AWS_KINESIS_CODE_VALIDATION_ERROR,              .http_code=400, .error="ValidationError",             .reason="The input fails to satisfy the constraints specified by an AWS service."},
+    { .code=AWS_KINESIS_CODE_NONE,                          .http_code=200, .error="None",                        .reason="Success."},
 };
 
 static char *aws_dynamo_get_canonicalized_headers(struct http_headers *headers) {
@@ -163,13 +164,29 @@ static int aws_post(struct aws_handle *aws, const char *aws_service, const char 
 
     /* FIXME - choose host based on service enum, no strcmp. */
 	if (strcmp(aws_service, "dynamodb") == 0) {
+        /* FIXME: make https/http not DynamoDB specific, just have 1 
+           boolean that controls for the whole library if we use https or not. */
+        if (aws->dynamo_https) {
+            scheme = "https";
+        } else {
+            scheme = "http";
+        }
         if (aws->dynamo_host) {
             host = aws->dynamo_host;
         } else {
             host = AWS_DYNAMO_DEFAULT_HOST;
         }
 	} else if (strcmp(aws_service, "kinesis") == 0) {
+        int i;
+		scheme = "https";  /*FIXME: This is only supported in HTTPS, ugh it will be slower....*/
         host = "kinesis.us-east-1.amazonaws.com";
+        /*Kinesis uses a different content-type*/
+        for (i=0; i<sizeof(hdrs)/sizeof(hdrs[0]); i++) {
+            if (strcmp(hdrs[i].name, HTTP_CONTENT_TYPE_HEADER)==0) {
+                hdrs[i].value = AWS_KINESIS_CONTENT_TYPE;
+                break;
+            }
+        }
 	} else {
         Warnx("aws_post: Bad service");
         goto failure;
@@ -291,13 +308,6 @@ static int aws_post(struct aws_handle *aws, const char *aws_service, const char 
 #ifdef DEBUG_AWS_DYNAMO
 	Debug("aws_post: '%s'", body);
 #endif
-        /* FIXME: make https/http not DynamoDB specific, just have 1 
-           boolean that controls for the whole library if we use https or not. */
-	if (aws->dynamo_https) {
-		scheme = "https";
-	} else {
-		scheme = "http";
-	}
 
         /* FIXME: make the kinesis service port configurable?  Or not? */
 	if (aws->dynamo_port > 0) {
@@ -312,6 +322,7 @@ static int aws_post(struct aws_handle *aws, const char *aws_service, const char 
 			goto failure;
 		}
 	}
+	Debug("aws_post: "__FILE__":%d",__LINE__);
 
 	if (_http_post(aws->http, url, body, &headers) != HTTP_OK) {
 		Warnx("aws_post: HTTP post failed, will retry.");
@@ -321,14 +332,15 @@ static int aws_post(struct aws_handle *aws, const char *aws_service, const char 
 			goto failure;
 		}
 	}
+	Debug("aws_post: "__FILE__":%d",__LINE__);
 
 #ifdef DEBUG_AWS_DYNAMO
 	{
 		int response_len;
-
 		Debug("aws_post response: '%s'", http_get_data(aws->http, &response_len));
 	}
 #endif
+	Debug("aws_post:%d",__LINE__);
 
 	free(canonical_headers);
 	free(hashed_canonical_request);
@@ -638,7 +650,7 @@ static int kinesis_error_response_parser_string(void *ctx, const unsigned char *
 		type++;
 		typelen = len - (type - val);
         for (i=0; i<count; i++) {
-            struct aws_errors *aws_error = aws_kinesis_error[i];
+            struct aws_errors *aws_error = &aws_kinesis_errors[i];
         	if (AWS_DYNAMO_VALCMP(aws_error->error, type, typelen)) {
                 _ctx->code = aws_error->code;
                 found = i;
@@ -798,26 +810,26 @@ static int aws_kinesis_parse_error_response(const unsigned char *response, int r
 	}
 
 	switch(_ctx.code) {
-    AWS_KINESIS_CODE_MISSING_ACTION:
-    AWS_KINESIS_CODE_MISSING_AUTHENTICATION_TOKEN:
-    AWS_KINESIS_CODE_MISSING_PARAMETER:
-    AWS_KINESIS_CODE_OPT_IN_REQUIRED:
-    AWS_KINESIS_CODE_REQUEST_EXPIRED:
-    AWS_KINESIS_CODE_INVALID_PARAMETER_COMBINATION:
-    AWS_KINESIS_CODE_INVALID_PARAMETER_VALUE:
-    AWS_KINESIS_CODE_INVALID_QUERY_PARAMETER:
-    AWS_KINESIS_CODE_MALFORMED_QUERY_STRING:
-    AWS_KINESIS_CODE_INCOMPLETE_SIGNATURE:
-    AWS_KINESIS_CODE_INVALID_CLIENTTOKENID:
-    AWS_KINESIS_CODE_INVALID_ACTION:
-    AWS_KINESIS_CODE_VALIDATION_ERROR:
+    case AWS_KINESIS_CODE_MISSING_ACTION:
+    case AWS_KINESIS_CODE_MISSING_AUTHENTICATION_TOKEN:
+    case AWS_KINESIS_CODE_MISSING_PARAMETER:
+    case AWS_KINESIS_CODE_OPT_IN_REQUIRED:
+    case AWS_KINESIS_CODE_REQUEST_EXPIRED:
+    case AWS_KINESIS_CODE_INVALID_PARAMETER_COMBINATION:
+    case AWS_KINESIS_CODE_INVALID_PARAMETER_VALUE:
+    case AWS_KINESIS_CODE_INVALID_QUERY_PARAMETER:
+    case AWS_KINESIS_CODE_MALFORMED_QUERY_STRING:
+    case AWS_KINESIS_CODE_INCOMPLETE_SIGNATURE:
+    case AWS_KINESIS_CODE_INVALID_CLIENTTOKENID:
+    case AWS_KINESIS_CODE_INVALID_ACTION:
+    case AWS_KINESIS_CODE_VALIDATION_ERROR:
 		/* the request should not be retried. */
 		rv = 0;
 		break;
 
-    AWS_KINESIS_CODE_THROTTLING:
-    AWS_KINESIS_CODE_INTERNAL_FAILURE:
-    AWS_KINESIS_CODE_SERVICE_UNAVAILABLE:
+    case AWS_KINESIS_CODE_THROTTLING:
+    case AWS_KINESIS_CODE_INTERNAL_FAILURE:
+    case AWS_KINESIS_CODE_SERVICE_UNAVAILABLE:
 		/* the request should be retried. */
 		rv = 1;
 		break;

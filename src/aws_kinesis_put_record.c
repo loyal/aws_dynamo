@@ -40,7 +40,8 @@ enum {
 };
 
 struct put_record_ctx {
-	struct aws_dynamo_put_record_response *r;
+	struct aws_kinesis_put_record_response *r;
+	int parser_state;
 };
 
 static int put_record_string(void *ctx, const unsigned char *val, unsigned int len)
@@ -54,12 +55,12 @@ static int put_record_string(void *ctx, const unsigned char *val, unsigned int l
 	      _ctx->parser_state);
 #endif				/* DEBUG_PARSER */
 	switch (_ctx->parser_state) {
-	case PARSER_STATE_PARSER_STATE_SEQUENCE_NUMBER_VALUE:{
+	case PARSER_STATE_SEQUENCE_NUMBER_VALUE:{
             _ctx->r->sequence_number = strndup(val, len);
             _ctx->parser_state = PARSER_STATE_ROOT_MAP;
             break;
         }
-	case PARSER_STATE_PARSER_STATE_SHARD_ID_VALUE:{
+	case PARSER_STATE_SHARD_ID_VALUE:{
             _ctx->r->shard_id = strndup(val, len);
             _ctx->parser_state = PARSER_STATE_ROOT_MAP;
             break;
@@ -176,7 +177,7 @@ static yajl_callbacks put_record_callbacks = {
 	.yajl_end_map = put_record_end_map,
 };
 
-struct aws_dynamo_put_record_response * aws_dynamo_parse_put_record_response(const char *response, int response_len)
+struct aws_kinesis_put_record_response * aws_kinesis_parse_put_record_response(const char *response, int response_len)
 {
 	yajl_handle hand;
 	yajl_status stat;
@@ -184,7 +185,7 @@ struct aws_dynamo_put_record_response * aws_dynamo_parse_put_record_response(con
 
 	_ctx.r = calloc(sizeof(*(_ctx.r)), 1);
 	if (_ctx.r == NULL) {
-		Warnx("aws_dynamo_parse_put_record_response: response alloc failed.");
+		Warnx("aws_kinesis_parse_put_record_response: response alloc failed.");
 		return NULL;
 	}
 
@@ -201,10 +202,10 @@ struct aws_dynamo_put_record_response * aws_dynamo_parse_put_record_response(con
 	if (stat != yajl_status_ok) {
 		unsigned char *str =
 		    yajl_get_error(hand, 1, response, response_len);
-		Warnx("aws_dynamo_parse_put_record_response: json parse failed, '%s'", (const char *)str);
+		Warnx("aws_kinesis_parse_put_record_response: json parse failed, '%s'", (const char *)str);
 		yajl_free_error(hand, str);
 		yajl_free(hand);
-		aws_dynamo_free_put_record_response(_ctx.r);
+		aws_kinesis_free_put_record_response(_ctx.r);
 		return NULL;
 	}
 
@@ -212,25 +213,25 @@ struct aws_dynamo_put_record_response * aws_dynamo_parse_put_record_response(con
 	return _ctx.r;
 }
 
-struct aws_dynamo_put_record_response *aws_dynamo_put_record(struct aws_handle *aws, const char *request)
+struct aws_kinesis_put_record_response *aws_kinesis_put_record(struct aws_handle *aws, const char *request)
 {
 	const char *response;
 	int response_len;
-	struct aws_dynamo_put_record_response *r;
+	struct aws_kinesis_put_record_response *r;
 
-	if (aws_dynamo_request(aws, AWS_DYNAMO_PUT_RECORD, request) == -1) {
+	if (aws_kinesis_request(aws, AWS_KINESIS_PUT_RECORD, request) == -1) {
 		return NULL;
 	}
 
 	response = http_get_data(aws->http, &response_len);
 
 	if (response == NULL) {
-		Warnx("aws_dynamo_put_record: Failed to get response.");
+		Warnx("aws_kinesis_put_record: Failed to get response.");
 		return NULL;
 	}
 
-	if ((r = aws_dynamo_parse_put_record_response(response, response_len)) == NULL) {
-		Warnx("aws_dynamo_put_record: Failed to parse response.");
+	if ((r = aws_kinesis_parse_put_record_response(response, response_len)) == NULL) {
+		Warnx("aws_kinesis_put_record: Failed to parse response.");
 		return NULL;
 	}
 
@@ -240,12 +241,13 @@ struct aws_dynamo_put_record_response *aws_dynamo_put_record(struct aws_handle *
         Warnx("Return sequence number is too long");
     }
     strncpy(aws->kinesis_sequence, r->sequence_number, AWS_KINESIS_SEQUENCE_SIZE);
-    aws->kinesis_sequence[AWS_KINESIS_SEQUENCE_SIZE-1] = \0;
+    if (AWS_KINESIS_SEQUENCE_SIZE > 0)
+        aws->kinesis_sequence[AWS_KINESIS_SEQUENCE_SIZE-1] = '\0';
 
 	return r;
 }
 
-void aws_dynamo_dump_put_record_response(struct aws_dynamo_put_record_response *r)
+void aws_kinesis_dump_put_record_response(struct aws_kinesis_put_record_response *r)
 {
 #ifdef DEBUG_PARSER
 	if (r == NULL) {
@@ -259,7 +261,7 @@ void aws_dynamo_dump_put_record_response(struct aws_dynamo_put_record_response *
 #endif
 }
 
-void aws_dynamo_free_put_record_response(struct aws_dynamo_put_record_response *r)
+void aws_kinesis_free_put_record_response(struct aws_kinesis_put_record_response *r)
 {
 	if (r == NULL) {
 		return;

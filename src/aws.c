@@ -118,7 +118,7 @@ void aws_deinit(struct aws_handle *aws) {
 	}
 }
 
-char *base64_encode(char *in, int in_len, size_t *out_len) {
+char *aws_base64_encode(char *in, int in_len, size_t *out_len) {
     BIO *bio = NULL, *b64 = NULL;
     char *out = NULL;
     FILE *fp;

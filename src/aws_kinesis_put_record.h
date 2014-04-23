@@ -16,8 +16,8 @@
  * along with aws_dynamo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _AWS_KINESIS_PUT_ITEM_H_
-#define _AWS_KINESIS_PUT_ITEM_H_
+#ifndef _AWS_KINESIS_PUT_RECORD_H_
+#define _AWS_KINESIS_PUT_RECORD_H_
 
 #include "aws_dynamo.h"
 
@@ -25,19 +25,19 @@
 extern "C" {
 #endif
 
-struct aws_kinesis_put_item_response {
+struct aws_kinesis_put_record_response {
     char *sequence_number;
     char *shard_id;
 };
 
-struct aws_kinesis_put_item_response *aws_kinesis_put_item(struct aws_handle *aws, const char *request, struct aws_dynamo_attribute *attributes, int num_attributes);
+struct aws_kinesis_put_record_response *aws_kinesis_put_record(struct aws_handle *aws, const char *request);
 
-void aws_kinesis_free_put_item_response(struct aws_kinesis_put_item_response *r);
-void aws_kinesis_dump_put_item_response(struct aws_kinesis_put_item_response *r);
+void aws_kinesis_free_put_record_response(struct aws_kinesis_put_record_response *r);
+void aws_kinesis_dump_put_record_response(struct aws_kinesis_put_record_response *r);
 
 #ifdef  __cplusplus
 }
 #endif
 
-#endif /* _AWS_KINESIS_PUT_ITEM_H_ */
+#endif /* _AWS_KINESIS_PUT_RECORD_H_ */
 

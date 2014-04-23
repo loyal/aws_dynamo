@@ -60,7 +60,7 @@ struct aws_handle *aws_init(const char *aws_id, const char *aws_key);
 
 void aws_deinit(struct aws_handle *aws);
 
-char *base64_encode(char *in, int in_len, size_t *out_len);
+char *aws_base64_encode(char *in, int in_len, size_t *out_len);
 
 time_t aws_parse_iso8601_date(char *str);
 
