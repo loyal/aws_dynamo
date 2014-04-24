@@ -34,7 +34,6 @@
 #include "aws_sigv4.h"
 #include "aws_dynamo.h"
 #include "aws_dynamo_query.h"
-#include "aws_kinesis.h"
 
 const char *aws_dynamo_attribute_types[] = {
 	AWS_DYNAMO_JSON_TYPE_STRING,
