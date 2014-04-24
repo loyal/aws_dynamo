@@ -25,10 +25,6 @@
 extern "C" {
 #endif
 
-/* Content-Type: value for DynamoDB requests */
-#define AWS_DYNAMO_CONTENT_TYPE	"application/x-amz-json-1.0"
-
-/* FIXME: Move into aws_kinesis.h*/
 #define AWS_KINESIS_DEFAULT_HOST "kinesis.us-east-1.amazonaws.com"
 #define AWS_KINESIS_PUT_RECORD "Kinesis_20131202.PutRecord"
 

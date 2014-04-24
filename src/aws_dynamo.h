@@ -53,7 +53,6 @@ extern "C" {
 #define AWS_DYNAMO_UPDATE_ITEM		"DynamoDB_20111205.UpdateItem"
 #define AWS_DYNAMO_UPDATE_TABLE		"DynamoDB_20111205.UpdateTable"
 
-
 #define AWS_DYNAMO_ACCESS_DENIED_EXCEPTION							"AccessDeniedException"
 #define AWS_DYNAMO_CONDITIONAL_CHECK_FAILED_EXCEPTION				"ConditionalCheckFailedException"
 #define AWS_DYNAMO_INCOMPLETE_SIGNATURE_EXCEPTION					"IncompleteSignatureException"
@@ -289,8 +288,6 @@ int aws_dynamo_get_errno(struct aws_handle *aws);
 struct aws_dynamo_item *aws_dynamo_copy_item(struct aws_dynamo_item *item);
 
 void aws_dynamo_free_item(struct aws_dynamo_item *item);
-
-int aws_kinesis_request(struct aws_handle *aws, const char *target, const char *body);
 
 #ifdef  __cplusplus
 }
