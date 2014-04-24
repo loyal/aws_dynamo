@@ -29,8 +29,6 @@
 #include "aws_kinesis.h"
 #include "aws_kinesis_put_record.h"
 
-#define DEBUG_PARSER 1
-
 enum {
 	PARSER_STATE_NONE = 0,
 	PARSER_STATE_ROOT_MAP,

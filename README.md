@@ -40,9 +40,12 @@ $ ./configure
 $ make
 ```
 
+If you want to enable verbose debugging messages (this is only appropriate for
+development) then pass the '--enable-debug' option to 'configure'.
+
 Then, to run tests:
 ```
-$ make check
+$ make -j check
 ```
 
 To install the library:

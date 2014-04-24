@@ -36,9 +36,6 @@
 #include "aws_dynamo.h"
 #include "aws_dynamo_query.h"
 
-#define DEBUG_AWS_KINESIS 1
-#define DEBUG_PARSER 1
-
 struct aws_errors aws_kinesis_errors[] = {
     { .code=AWS_KINESIS_CODE_UNKNOWN,                       .http_code=-1,  .error="Unknown",                     .reason="Unknown"},
     { .code=AWS_KINESIS_CODE_NONE,                          .http_code=200, .error="None",                        .reason="Success."},

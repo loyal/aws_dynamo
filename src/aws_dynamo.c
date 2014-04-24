@@ -36,9 +36,6 @@
 #include "aws_dynamo_query.h"
 #include "aws_kinesis.h"
 
-#define DEBUG_AWS_DYNAMO 1
-#define DEBUG_PARSER 1
-
 const char *aws_dynamo_attribute_types[] = {
 	AWS_DYNAMO_JSON_TYPE_STRING,
 	AWS_DYNAMO_JSON_TYPE_STRING_SET,
