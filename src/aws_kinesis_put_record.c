@@ -232,15 +232,6 @@ struct aws_kinesis_put_record_response *aws_kinesis_put_record(struct aws_handle
 		return NULL;
 	}
 
-    if (r->sequence_number == NULL) {
-        Warnx("Return sequence number is NULL");
-    } else if (strlen(r->sequence_number) >= AWS_KINESIS_SEQUENCE_SIZE) {
-        Warnx("Return sequence number is too long");
-    }
-    strncpy(aws->kinesis_sequence, r->sequence_number, AWS_KINESIS_SEQUENCE_SIZE);
-    if (AWS_KINESIS_SEQUENCE_SIZE > 0)
-        aws->kinesis_sequence[AWS_KINESIS_SEQUENCE_SIZE-1] = '\0';
-
 	return r;
 }
 

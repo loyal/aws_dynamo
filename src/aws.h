@@ -55,8 +55,6 @@ struct aws_handle {
 	int dynamo_port;
 	char *dynamo_host;
 
-    /* Kinesis */
-    char kinesis_sequence[AWS_KINESIS_SEQUENCE_SIZE];
 };
 
 struct aws_handle *aws_init(const char *aws_id, const char *aws_key);
